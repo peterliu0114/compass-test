@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>指南針真機測試 — weather-app v1.7.0</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #1a2030;
+      color: #e8edf5;
+      font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      gap: 20px;
+    }
+    h1 { font-size: 18px; margin: 0; font-weight: 700; }
+    .sub { font-size: 13px; color: #9aa7bd; margin: -10px 0 0; text-align: center; }
+    .map-compass {
+      position: relative;
+      width: 160px; height: 160px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: default;
+    }
+    .map-compass__needle {
+      width: 160px !important; height: 160px !important;
+      transition: transform 0.12s linear;
+      transform-origin: 50% 50%;
+    }
+    .map-compass__hint {
+      position: absolute;
+      bottom: -26px; left: 50%; transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 12px; color: #ffd27a;
+    }
+    .panel {
+      width: 100%; max-width: 360px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.9;
+    }
+    .panel h2 { font-size: 13px; margin: 0 0 8px; color: #9aa7bd; font-weight: 600; letter-spacing: 0.5px; }
+    .row { display: flex; justify-content: space-between; gap: 10px; }
+    .row .k { color: #9aa7bd; }
+    .row .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .ok { color: #6ee7a0; }
+    .bad { color: #ff7a7a; }
+    .heading-big {
+      font-size: 34px; font-weight: 800; text-align: center;
+      font-variant-numeric: tabular-nums; margin: 4px 0 0; letter-spacing: 1px;
+    }
+    .heading-big small { font-size: 14px; color: #9aa7bd; font-weight: 600; }
+    button {
+      width: 100%; max-width: 360px;
+      padding: 13px; border: none; border-radius: 12px;
+      background: #3d6cff; color: #fff; font-size: 15px; font-weight: 700;
+      cursor: pointer;
+    }
+    button.ghost { background: rgba(255,255,255,0.08); color: #c8d2e4; }
+    .steps { width: 100%; max-width: 360px; font-size: 13px; color: #c8d2e4; line-height: 1.8; }
+    .steps li { margin-bottom: 6px; }
+    code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>🧭 指南針真機測試</h1>
+  <p class="sub">weather-app v1.7.0 — iOS / Android requestPermission 驗證頁</p>
+
+  <div id="mapCompass" class="map-compass" aria-label="指南針">
+    <svg id="compassNeedle" class="map-compass__needle" viewBox="0 0 48 48" width="96" height="96">
+      <circle cx="24" cy="24" r="21" fill="rgba(40,50,70,0.85)" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
+      <g stroke="rgba(255,255,255,0.55)" stroke-width="1.4">
+        <line x1="24" y1="3" x2="24" y2="8"/>
+        <line x1="24" y1="45" x2="24" y2="40"/>
+        <line x1="45" y1="24" x2="40" y2="24"/>
+        <line x1="3" y1="24" x2="8" y2="24"/>
+      </g>
+      <g stroke="rgba(255,255,255,0.3)" stroke-width="1">
+        <line x1="38.8" y1="9.2" x2="36.7" y2="11.3"/>
+        <line x1="38.8" y1="38.8" x2="36.7" y2="36.7"/>
+        <line x1="9.2" y1="38.8" x2="11.3" y2="36.7"/>
+        <line x1="9.2" y1="9.2" x2="11.3" y2="11.3"/>
+      </g>
+      <polygon points="24,8 27,24 24,21 21,24" fill="#ff6b6b"/>
+      <polygon points="24,40 27,24 24,27 21,24" fill="rgba(255,255,255,0.5)"/>
+      <circle cx="24" cy="24" r="1.7" fill="rgba(255,255,255,0.9)"/>
+      <text x="24" y="14.5" text-anchor="middle" font-size="6.5" font-weight="bold" fill="#fff">N</text>
+      <text x="35" y="26.3" text-anchor="middle" font-size="5.5" fill="rgba(255,255,255,0.85)">E</text>
+      <text x="24" y="37.5" text-anchor="middle" font-size="5.5" fill="rgba(255,255,255,0.85)">S</text>
+      <text x="13" y="26.3" text-anchor="middle" font-size="5.5" fill="rgba(255,255,255,0.85)">W</text>
+    </svg>
+    <span id="compassHint" class="map-compass__hint"></span>
+  </div>
+
+  <div class="heading-big"><span id="headingBig">—</span><small>°</small></div>
+
+  <div class="panel">
+    <h2>環境檢查(靜態)</h2>
+    <div class="row"><span class="k">HTTPS 安全環境</span><span class="v" id="secure">—</span></div>
+    <div class="row"><span class="k">DeviceOrientationEvent</span><span class="v" id="hasOri">—</span></div>
+    <div class="row"><span class="k">需 requestPermission(iOS)</span><span class="v" id="needPerm">—</span></div>
+    <div class="row"><span class="k">授權狀態</span><span class="v" id="permState">尚未請求</span></div>
+  </div>
+
+  <div class="panel">
+    <h2>即時讀數(動態)</h2>
+    <div class="row"><span class="k">webkitCompassHeading(iOS)</span><span class="v" id="webkit">—</span></div>
+    <div class="row"><span class="k">alpha(Android)</span><span class="v" id="alpha">—</span></div>
+    <div class="row"><span class="k">計算後 heading</span><span class="v" id="heading">—</span></div>
+    <div class="row"><span class="k">事件觸發次數</span><span class="v" id="count">0</span></div>
+  </div>
+
+  <button id="reloadBtn" class="ghost">🔄 重新載入(若誤拒授權)</button>
+
+  <ol class="steps">
+    <li>把這頁開在 <strong>iPhone Safari</strong>(網址要是 <code>https://</code>)</li>
+    <li>指南針下方應顯示「<strong>點指南針啟用方位</strong>」</li>
+    <li>點一下指南針 → iOS 應跳出「<strong>允許存取動作與方向？</strong>」</li>
+    <li>按「允許」→ 提示文字消失,轉動手機看指針有沒有跟著轉(N 永遠指北)</li>
+    <li>看「即時讀數」面板,<code>webkitCompassHeading</code> 數字有沒有隨手機轉動而變</li>
+  </ol>
+
+  <script>
+    let compassInited = false;
+
+    function rotateCompass(heading) {
+      const needle = document.getElementById('compassNeedle');
+      if (!needle) return;
+      needle.style.transform = `rotate(${-heading}deg)`;
+    }
+
+    function handleOrientation(e) {
+      let heading = null;
+      if (typeof e.webkitCompassHeading === 'number') {
+        heading = e.webkitCompassHeading;
+      } else if (typeof e.alpha === 'number') {
+        heading = 360 - e.alpha;
+      }
+      if (heading !== null) rotateCompass(heading);
+    }
+
+    function initCompass() {
+      if (compassInited) return;
+      compassInited = true;
+      const compass = document.getElementById('mapCompass');
+      const hint = document.getElementById('compassHint');
+      if (!compass) return;
+      const hasOrientation = (typeof window.DeviceOrientationEvent !== 'undefined');
+      if (!hasOrientation) {
+        if (hint) hint.textContent = '桌面模式 — 請用手機開啟以對齊真實方位';
+        return;
+      }
+      const needsPermission =
+        typeof window.DeviceOrientationEvent.requestPermission === 'function';
+      if (needsPermission) {
+        if (hint) hint.textContent = '點指南針啟用方位';
+        compass.style.cursor = 'pointer';
+        compass.addEventListener('click', () => {
+          window.DeviceOrientationEvent.requestPermission()
+            .then((state) => {
+              setPermState(state);
+              if (state === 'granted') {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+                if (hint) hint.textContent = '';
+                compass.style.cursor = '';
+              } else {
+                if (hint) hint.textContent = '未授權方位 — 指南針為靜態顯示';
+              }
+            })
+            .catch(() => {
+              setPermState('error');
+              if (hint) hint.textContent = '方位讀取失敗 — 指南針為靜態顯示';
+            });
+        }, { once: true });
+      } else {
+        window.addEventListener('deviceorientation', handleOrientation, true);
+        if (hint) hint.textContent = '';
+      }
+    }
+
+    const $ = (id) => document.getElementById(id);
+    let evCount = 0;
+
+    function setPermState(s) {
+      const map = { granted: ['已授權 ✓', 'ok'], denied: ['已拒絕 ✗', 'bad'], error: ['請求失敗 ✗', 'bad'] };
+      const [txt, cls] = map[s] || [s, ''];
+      const el = $('permState'); el.textContent = txt; el.className = 'v ' + cls;
+    }
+
+    (function staticChecks() {
+      const secureEl = $('secure');
+      secureEl.textContent = window.isSecureContext ? '是 ✓' : '否 ✗（iOS 需 HTTPS）';
+      secureEl.className = 'v ' + (window.isSecureContext ? 'ok' : 'bad');
+      const hasOri = typeof window.DeviceOrientationEvent !== 'undefined';
+      const oriEl = $('hasOri');
+      oriEl.textContent = hasOri ? '有 ✓' : '無（桌面 fallback）';
+      oriEl.className = 'v ' + (hasOri ? 'ok' : 'bad');
+      const needPerm = hasOri && typeof window.DeviceOrientationEvent.requestPermission === 'function';
+      $('needPerm').textContent = needPerm ? '是（iOS 13+）' : '否（Android/桌面）';
+    })();
+
+    window.addEventListener('deviceorientation', function (e) {
+      evCount++;
+      $('count').textContent = evCount;
+      if (typeof e.webkitCompassHeading === 'number') {
+        $('webkit').textContent = e.webkitCompassHeading.toFixed(1);
+      }
+      if (typeof e.alpha === 'number') {
+        $('alpha').textContent = e.alpha.toFixed(1);
+      }
+      let h = null;
+      if (typeof e.webkitCompassHeading === 'number') h = e.webkitCompassHeading;
+      else if (typeof e.alpha === 'number') h = 360 - e.alpha;
+      if (h !== null) {
+        $('heading').textContent = h.toFixed(1) + '°';
+        $('headingBig').textContent = Math.round(h);
+      }
+    }, true);
+
+    $('reloadBtn').addEventListener('click', () => location.reload());
+    document.addEventListener('DOMContentLoaded', initCompass);
+  </script>
+</body>
+</html>
